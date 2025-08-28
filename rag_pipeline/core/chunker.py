@@ -55,7 +55,7 @@ class ChunkingService:
                 chunk_index=i,
                 start_char=start_char,
                 end_char=end_char,
-                metadata={
+                chunk_metadata={
                     "source_url": document.metadata.source_url,
                     "filename": document.metadata.filename,
                     "file_type": document.metadata.file_type,
@@ -97,7 +97,7 @@ class ChunkingService:
                         chunk_index=i * 100 + j,
                         start_char=start_char,
                         end_char=start_char + len(sub_chunk),
-                        metadata=chunk_metadata
+                        chunk_metadata=chunk_metadata
                     )
                     chunks.append(chunk)
                     start_char += len(sub_chunk) - self.chunk_overlap
@@ -108,7 +108,7 @@ class ChunkingService:
                     chunk_index=i,
                     start_char=start_char,
                     end_char=end_char,
-                    metadata=chunk_metadata
+                    chunk_metadata=chunk_metadata
                 )
                 chunks.append(chunk)
             

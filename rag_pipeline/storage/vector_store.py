@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import text, and_, or_
+from sqlalchemy.future import select
 import asyncio
 from functools import partial
 
@@ -49,7 +50,7 @@ class VectorStore:
                         start_char=chunk.start_char,
                         end_char=chunk.end_char,
                         embedding=chunk.embedding,
-                        metadata=chunk.metadata
+                        chunk_metadata=chunk.chunk_metadata
                     )
                     chunk_records.append(chunk_record)
                 
@@ -72,7 +73,7 @@ class VectorStore:
         async def _search():
             async with self.db_manager.get_session() as session:
                 # Base query with similarity search
-                query = await session.query(
+                query = select(
                     DocumentChunkRecord,
                     DocumentChunkRecord.embedding.cosine_distance(query_embedding).label('distance')
                 )
@@ -84,12 +85,12 @@ class VectorStore:
                         if isinstance(value, list):
                             # Handle list values (IN operator)
                             conditions.append(
-                                DocumentChunkRecord.metadata[key].astext.in_(value)
+                                DocumentChunkRecord.chunk_metadata[key].astext.in_(value)
                             )
                         else:
                             # Handle single values
                             conditions.append(
-                                DocumentChunkRecord.metadata[key].astext == str(value)
+                                DocumentChunkRecord.chunk_metadata[key].astext == str(value)
                             )
                     
                     if conditions:
@@ -97,12 +98,12 @@ class VectorStore:
                 
                 # Apply similarity threshold (convert to distance threshold)
                 distance_threshold = 1.0 - similarity_threshold
-                query = await query.filter(
+                query = query.filter(
                     DocumentChunkRecord.embedding.cosine_distance(query_embedding) < distance_threshold
                 )
                 
                 # Order by similarity and limit
-                results = await query.order_by('distance').limit(top_k).all()
+                results = await session.execute(query.order_by('distance').limit(top_k))
                 
                 # Convert to DocumentChunk objects with similarity scores
                 chunks_with_scores = []
@@ -116,7 +117,7 @@ class VectorStore:
                         start_char=record.start_char,
                         end_char=record.end_char,
                         embedding=record.embedding,
-                        metadata=record.metadata
+                        chunk_metadata=record.chunk_metadata
                     )
                     chunks_with_scores.append((chunk, similarity))
                 
@@ -130,9 +131,11 @@ class VectorStore:
         
         async def _get():
             async with self.db_manager.get_session() as session:
-                record = await session.query(DocumentRecord).filter(
-                    DocumentRecord.id == document_id
-                ).first()
+                record = await session.execute(
+                    select(DocumentRecord).filter(
+                        DocumentRecord.id == document_id
+                    ).first()
+                )
                 
                 if not record:
                     return None
@@ -187,7 +190,7 @@ class VectorStore:
         
         async def _get():
             async with self.db_manager.get_session() as session:
-                query = await session.query(DocumentRecord)
+                query = select(DocumentRecord)
                 
                 conditions = []
                 for key, value in metadata_filters.items():
@@ -210,9 +213,9 @@ class VectorStore:
                             )
                 
                 if conditions:
-                    query = await query.filter(and_(*conditions))
+                    query = query.filter(and_(*conditions))
                 
-                records = await query.limit(limit).all()
+                records = await session.execute(query.limit(limit).all())
                 
                 documents = []
                 for record in records:

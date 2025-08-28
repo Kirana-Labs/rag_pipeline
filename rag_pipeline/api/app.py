@@ -7,9 +7,11 @@ import torch
 import logging
 
 from ..core.pipeline import RAGPipeline
+from ..core.task_manager import BulkIngestionTaskManager
 from .models import (
     IngestionRequest, IngestionResponse, QueryRequest as APIQueryRequest,
-    QueryResponse as APIQueryResponse, QueryResult, HealthResponse
+    QueryResponse as APIQueryResponse, QueryResult, HealthResponse,
+    BulkIngestionRequest, BulkIngestionResponse, BulkJobStatus, JobStatus
 )
 from ..models.query import QueryRequest as PipelineQueryRequest
 
@@ -17,14 +19,15 @@ from ..models.query import QueryRequest as PipelineQueryRequest
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global pipeline instance
+# Global instances
 pipeline: Optional[RAGPipeline] = None
+task_manager: Optional[BulkIngestionTaskManager] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global pipeline
+    global pipeline, task_manager
     
     database_url = os.getenv(
         "DATABASE_URL", 
@@ -34,6 +37,8 @@ async def lifespan(app: FastAPI):
     embedding_model = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
     chunk_size = int(os.getenv("CHUNK_SIZE", "1000"))
     chunk_overlap = int(os.getenv("CHUNK_OVERLAP", "200"))
+    max_concurrent_jobs = int(os.getenv("MAX_CONCURRENT_BULK_JOBS", "3"))
+    max_concurrent_docs_per_job = int(os.getenv("MAX_CONCURRENT_DOCS_PER_JOB", "5"))
     
     pipeline = RAGPipeline(
         database_url=database_url,
@@ -43,16 +48,26 @@ async def lifespan(app: FastAPI):
         chunk_overlap=chunk_overlap
     )
     
+    task_manager = BulkIngestionTaskManager(
+        max_concurrent_jobs=max_concurrent_jobs,
+        max_concurrent_docs_per_job=max_concurrent_docs_per_job
+    )
+    
     try:
         await pipeline.initialize()
         logger.info("RAG Pipeline initialized successfully")
+        logger.info("Bulk ingestion task manager initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize pipeline: {e}")
+        logger.error(f"Failed to initialize components: {e}")
         raise
     
     yield
     
     # Shutdown
+    if task_manager:
+        await task_manager.shutdown()
+        logger.info("Task manager shut down")
+    
     if pipeline:
         await pipeline.close()
         logger.info("RAG Pipeline closed")
@@ -79,6 +94,12 @@ def get_pipeline() -> RAGPipeline:
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
     return pipeline
+
+
+def get_task_manager() -> BulkIngestionTaskManager:
+    if task_manager is None:
+        raise HTTPException(status_code=503, detail="Task manager not initialized")
+    return task_manager
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -152,7 +173,7 @@ async def query_documents(
         )
         
         response = await pipeline.query_documents(pipeline_request)
-        
+
         # Convert pipeline response to API response
         api_results = [
             QueryResult(
@@ -282,6 +303,128 @@ async def list_documents(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to list documents: {str(e)}"
+        )
+
+
+@app.post("/ingest/bulk", response_model=BulkIngestionResponse)
+async def bulk_ingest_documents(
+    request: BulkIngestionRequest,
+    pipeline: RAGPipeline = Depends(get_pipeline),
+    task_manager: BulkIngestionTaskManager = Depends(get_task_manager)
+):
+    try:
+        logger.info(f"Starting bulk ingestion of {len(request.documents)} documents")
+        
+        # Create the bulk ingestion job
+        job_id = task_manager.create_job(
+            documents=request.documents,
+            batch_name=request.batch_name
+        )
+        
+        # Start processing in the background
+        await task_manager.start_job(job_id, pipeline.ingest_document)
+        
+        # Estimate completion time (rough estimate: 30 seconds per document)
+        estimated_minutes = max(1, (len(request.documents) * 30) // 60)
+        estimated_time = f"{estimated_minutes}-{estimated_minutes + 2} minutes"
+        
+        return BulkIngestionResponse(
+            job_id=job_id,
+            status=JobStatus.PENDING,
+            total_documents=len(request.documents),
+            message="Bulk ingestion job created and processing started",
+            estimated_completion_time=estimated_time
+        )
+    
+    except Exception as e:
+        logger.error(f"Bulk ingestion failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start bulk ingestion: {str(e)}"
+        )
+
+
+@app.get("/ingest/bulk/{job_id}", response_model=BulkJobStatus)
+async def get_bulk_job_status(
+    job_id: str,
+    task_manager: BulkIngestionTaskManager = Depends(get_task_manager)
+):
+    try:
+        job_status = task_manager.get_job_status(job_id)
+        if not job_status:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        return job_status
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get job status failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get job status: {str(e)}"
+        )
+
+
+@app.get("/ingest/bulk", response_model=List[BulkJobStatus])
+async def list_bulk_jobs(
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of jobs to return"),
+    task_manager: BulkIngestionTaskManager = Depends(get_task_manager)
+):
+    try:
+        jobs = task_manager.list_jobs(limit=limit)
+        return jobs
+    
+    except Exception as e:
+        logger.error(f"List jobs failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list jobs: {str(e)}"
+        )
+
+
+@app.delete("/ingest/bulk/{job_id}")
+async def cancel_bulk_job(
+    job_id: str,
+    task_manager: BulkIngestionTaskManager = Depends(get_task_manager)
+):
+    try:
+        cancelled = task_manager.cancel_job(job_id)
+        if not cancelled:
+            raise HTTPException(
+                status_code=404, 
+                detail="Job not found or not running"
+            )
+        
+        return {"message": f"Job {job_id} cancelled successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Cancel job failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cancel job: {str(e)}"
+        )
+
+
+@app.post("/ingest/bulk/cleanup")
+async def cleanup_old_jobs(
+    max_age_hours: int = Query(24, ge=1, le=720, description="Maximum age in hours for jobs to keep"),
+    task_manager: BulkIngestionTaskManager = Depends(get_task_manager)
+):
+    try:
+        cleaned_count = task_manager.cleanup_completed_jobs(max_age_hours=max_age_hours)
+        return {
+            "message": f"Cleaned up {cleaned_count} old jobs",
+            "cleaned_count": cleaned_count
+        }
+    
+    except Exception as e:
+        logger.error(f"Cleanup jobs failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cleanup jobs: {str(e)}"
         )
 
 

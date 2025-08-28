@@ -32,7 +32,7 @@ class DocumentChunk(BaseModel):
     start_char: Optional[int] = None
     end_char: Optional[int] = None
     embedding: Optional[List[float]] = None
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    chunk_metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
     class Config:
         arbitrary_types_allowed = True

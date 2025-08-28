@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, Column, String, DateTime, Integer, Text, J
 from sqlalchemy.ext.declarative import declarative_base
 # from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pgvector.sqlalchemy import Vector
 import uuid
 from datetime import datetime
@@ -22,7 +22,7 @@ class DocumentRecord(Base):
     file_size = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    custom_metadata = Column(JSON, default=dict)
+    custom_metadata = Column(JSONB, default=dict)
     embedding = Column(Vector(384))  # Default for all-MiniLM-L6-v2
     
     __table_args__ = (
@@ -42,7 +42,7 @@ class DocumentChunkRecord(Base):
     start_char = Column(Integer)
     end_char = Column(Integer)
     embedding = Column(Vector(384))  # Default for all-MiniLM-L6-v2
-    chunk_metadata = Column(JSON, default=dict)
+    chunk_metadata = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     
     __table_args__ = (

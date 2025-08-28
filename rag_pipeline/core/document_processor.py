@@ -9,7 +9,7 @@ from PIL import Image
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions, TesseractOcrOptions, EasyOcrOptions
-from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
+from docling_core.types.doc import ImageRefMode
 
 from ..models.document import Document, DocumentMetadata
 
@@ -84,25 +84,9 @@ class DocumentProcessor:
         
         def _convert():
             result = self.doc_converter.convert(file_path)
-            return result.document.export_to_markdown()
+            return result.document.export_to_markdown(image_mode=ImageRefMode.REFERENCED)
         
         return await loop.run_in_executor(None, _convert)
-    
-    async def _process_image(self, file_path: str) -> str:
-        loop = asyncio.get_event_loop()
-        
-        def _extract_text():
-            try:
-                from PIL import Image
-                import pytesseract
-                
-                with Image.open(file_path) as img:
-                    text = pytesseract.image_to_string(img)
-                    return f"Image content:\n{text}"
-            except ImportError:
-                return f"Image file: {Path(file_path).name} (OCR not available - install pytesseract)"
-        
-        return await loop.run_in_executor(None, _extract_text)
     
     def _determine_file_type(self, filename: str, content_type: str) -> str:
         if content_type:

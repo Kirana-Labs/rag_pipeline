@@ -91,7 +91,7 @@ class RAGPipeline:
                 "document_id": chunk.document_id,
                 "content": chunk.content,
                 "similarity_score": similarity_score,
-                "metadata": chunk.metadata,
+                "metadata": chunk.chunk_metadata,
                 "chunk_index": chunk.chunk_index,
                 "start_char": chunk.start_char,
                 "end_char": chunk.end_char
