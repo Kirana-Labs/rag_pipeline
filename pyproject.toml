@@ -1,0 +1,29 @@
+[project]
+name = "2025-08-28-g2x-rag-pipeline"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "docling>=2.48.0",
+    "httpx[http2]>=0.28.1",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-community>=0.3.0",
+    "langchain-text-splitters>=0.3.0",
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.3.5",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "pydantic>=2.9.0",
+    "python-multipart>=0.0.9",
+    "pillow>=10.4.0",
+    "numpy>=1.26.0",
+    "torch>=2.4.0",
+    "transformers>=4.44.0",
+    "sentence-transformers>=3.1.0",
+    "asyncpg>=0.30.0",
+    "greenlet>=3.2.4",
+]
