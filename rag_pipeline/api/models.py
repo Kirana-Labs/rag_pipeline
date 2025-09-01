@@ -91,6 +91,9 @@ class QueryResult(BaseModel):
     chunk_index: int
     start_char: Optional[int] = None
     end_char: Optional[int] = None
+    rank: Optional[int] = None
+    relevance_score: Optional[float] = None
+    reranked: Optional[bool] = False
 
 
 class QueryResponse(BaseModel):

@@ -35,10 +35,10 @@ class ChunkingService:
         )
     
     async def chunk_document(self, document: Document) -> List[DocumentChunk]:
-        if document.metadata.file_type.lower() in ['md', 'markdown']:
-            return await self._chunk_markdown(document)
-        else:
-            return await self._chunk_text(document)
+        # if document.metadata.file_type.lower() in ['md', 'markdown']:
+        return await self._chunk_markdown(document)
+        # else:
+        #     return await self._chunk_text(document)
     
     async def _chunk_text(self, document: Document) -> List[DocumentChunk]:
         text_chunks = self.text_splitter.split_text(document.content)

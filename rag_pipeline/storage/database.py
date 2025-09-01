@@ -23,7 +23,7 @@ class DocumentRecord(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     custom_metadata = Column(JSONB, default=dict)
-    embedding = Column(Vector(384))  # Default for all-MiniLM-L6-v2
+    embedding = Column(Vector(512))  # Default for all-MiniLM-L6-v2 is 384, so change it to that if using it
     
     __table_args__ = (
         Index('idx_documents_source_url', 'source_url'),
@@ -41,7 +41,7 @@ class DocumentChunkRecord(Base):
     chunk_index = Column(Integer, nullable=False)
     start_char = Column(Integer)
     end_char = Column(Integer)
-    embedding = Column(Vector(384))  # Default for all-MiniLM-L6-v2
+    embedding = Column(Vector(512))  # Default for all-MiniLM-L6-v2 is 384, so change it to that if using it
     chunk_metadata = Column(JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
     

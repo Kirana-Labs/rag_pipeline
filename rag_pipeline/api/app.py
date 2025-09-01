@@ -14,6 +14,9 @@ from .models import (
     BulkIngestionRequest, BulkIngestionResponse, BulkJobStatus, JobStatus
 )
 from ..models.query import QueryRequest as PipelineQueryRequest
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,18 +37,32 @@ async def lifespan(app: FastAPI):
         "postgresql://user:password@localhost:5432/rag_db"
     )
     use_gpu = os.getenv("USE_GPU", "false").lower() == "true"
+    embedding_provider = os.getenv("EMBEDDING_PROVIDER", "sentence-transformers")
     embedding_model = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    embedding_dimensions = os.getenv("EMBEDDING_DIMENSIONS")
+    voyage_api_key = os.getenv("VOYAGE_API_KEY")
+    use_reranker = os.getenv("USE_RERANKER", "false").lower() == "true"
+    reranker_model = os.getenv("RERANKER_MODEL", "rerank-2.5")
     chunk_size = int(os.getenv("CHUNK_SIZE", "1000"))
     chunk_overlap = int(os.getenv("CHUNK_OVERLAP", "200"))
     max_concurrent_jobs = int(os.getenv("MAX_CONCURRENT_BULK_JOBS", "3"))
     max_concurrent_docs_per_job = int(os.getenv("MAX_CONCURRENT_DOCS_PER_JOB", "5"))
     
+    # Convert embedding_dimensions to int if provided
+    if embedding_dimensions:
+        embedding_dimensions = int(embedding_dimensions)
+    
     pipeline = RAGPipeline(
         database_url=database_url,
         use_gpu=use_gpu,
+        embedding_provider=embedding_provider,
         embedding_model=embedding_model,
+        embedding_dimensions=embedding_dimensions,
+        voyage_api_key=voyage_api_key,
         chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap
+        chunk_overlap=chunk_overlap,
+        use_reranker=use_reranker,
+        reranker_model=reranker_model
     )
     
     task_manager = BulkIngestionTaskManager(
@@ -184,7 +201,10 @@ async def query_documents(
                 metadata=result["metadata"],
                 chunk_index=result["chunk_index"],
                 start_char=result.get("start_char"),
-                end_char=result.get("end_char")
+                end_char=result.get("end_char"),
+                rank=result.get("rank"),
+                relevance_score=result.get("relevance_score"),
+                reranked=result.get("reranked", False)
             )
             for result in response.results
         ]
