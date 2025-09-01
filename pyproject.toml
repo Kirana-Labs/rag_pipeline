@@ -28,4 +28,5 @@ dependencies = [
     "greenlet>=3.2.4",
     "voyageai>=0.2.0",
     "python-dotenv>=1.1.1",
+    "runpod>=1.6.0",
 ]

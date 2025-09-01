@@ -1,8 +1,10 @@
-FROM nvidia/cuda:11.8-devel-ubuntu22.04
+# RunPod Serverless Dockerfile for RAG Pipeline with GPU support
+FROM python:3.13-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONPATH=/app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -29,11 +31,17 @@ RUN pip install uv
 # Install project dependencies
 RUN uv pip install --system -e .
 
+# Install RunPod SDK
+RUN pip install runpod
+
 # Copy application code
 COPY . .
 
-# Expose port
+# Create a requirements.txt file for RunPod compatibility
+RUN uv export --format requirements-txt > requirements.txt
+
+# Expose port (for local testing)
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "main.py"]
+# Run the RunPod handler
+CMD ["python", "-u", "rp_handler.py"]
