@@ -34,6 +34,13 @@ RUN uv pip install --system -e .
 # Install RunPod SDK
 RUN pip install runpod
 
+# Create models directory and download docling models
+RUN mkdir -p /app/models
+RUN docling-tools models download -o /app/models
+
+# Set environment variable to use pre-downloaded models
+ENV DOCLING_SERVE_ARTIFACTS_PATH=/app/models
+
 # Copy application code
 COPY . .
 
