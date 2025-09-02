@@ -10,7 +10,6 @@ This handler provides a serverless interface for the RAG pipeline with the follo
 """
 
 import runpod
-import asyncio
 import os
 import traceback
 from typing import Dict, Any, Optional
@@ -242,9 +241,9 @@ async def handle_health(input_data: Dict[str, Any]) -> Dict[str, Any]:
             "error": str(e)
         }
 
-def handler(event):
+async def handler(event):
     """
-    RunPod serverless handler function.
+    Async handler function for RunPod serverless.
     
     Expected input format:
     {
@@ -269,13 +268,13 @@ def handler(event):
         
         # Run the appropriate async handler
         if action == "ingest":
-            result = asyncio.run(handle_ingest(data))
+            result = await handle_ingest(data)
         elif action == "query":
-            result = asyncio.run(handle_query(data))
+            result = await handle_query(data)
         elif action == "list_documents":
-            result = asyncio.run(handle_list_documents(data))
+            result = await handle_list_documents(data)
         elif action == "health":
-            result = asyncio.run(handle_health(data))
+            result = await handle_health(data)
         else:
             result = {
                 "error": f"Unknown action: {action}. Supported actions: ingest, query, list_documents, health",
