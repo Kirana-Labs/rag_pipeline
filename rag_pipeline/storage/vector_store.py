@@ -265,7 +265,7 @@ class VectorStore:
                     if file_type:
                         query = query.filter(DocumentRecord.file_type == file_type)
                 
-                result = await session.execute(query.first())
+                result = await session.execute(query)
                 
                 if result:
                     return result.scalars().first()

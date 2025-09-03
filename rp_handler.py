@@ -51,7 +51,6 @@ async def initialize_pipeline():
             embedding_dimensions = int(embedding_dimensions)
         
         logger.info(f"Initializing pipeline with:")
-        # logger.info(f"  - Database: {database_url}")
         logger.info(f"  - GPU: {use_gpu}")
         logger.info(f"  - Embedding Provider: {embedding_provider}")
         logger.info(f"  - Embedding Model: {embedding_model}")
