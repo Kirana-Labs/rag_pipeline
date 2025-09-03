@@ -14,6 +14,7 @@ class DocumentIngestionItem(BaseModel):
     url: HttpUrl
     filename: str
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    dedup_key: Optional[str] = Field(None, description="Metadata key to use for deduplication. If not provided, uses filename+filetype")
     
     class Config:
         json_schema_extra = {
@@ -23,7 +24,8 @@ class DocumentIngestionItem(BaseModel):
                 "metadata": {
                     "category": "research",
                     "author": "John Doe"
-                }
+                },
+                "dedup_key": "document_id"
             }
         }
 
@@ -32,6 +34,7 @@ class IngestionRequest(BaseModel):
     url: HttpUrl
     filename: str
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    dedup_key: Optional[str] = Field(None, description="Metadata key to use for deduplication. If not provided, uses filename+filetype")
     
     class Config:
         json_schema_extra = {
@@ -42,7 +45,8 @@ class IngestionRequest(BaseModel):
                     "category": "research",
                     "author": "John Doe",
                     "tags": ["AI", "ML"]
-                }
+                },
+                "dedup_key": "document_id"
             }
         }
 

@@ -65,7 +65,7 @@ class BulkIngestionTaskManager:
     async def start_job(
         self, 
         job_id: str, 
-        ingestion_callback: Callable[[str, str, Optional[Dict[str, Any]]], Any]
+        ingestion_callback: Callable[[str, str, Optional[Dict[str, Any]], Optional[str]], Any]
     ):
         if job_id not in self.jobs:
             raise ValueError(f"Job {job_id} not found")
@@ -83,7 +83,7 @@ class BulkIngestionTaskManager:
     async def _process_job(
         self, 
         job: BulkIngestionJob, 
-        ingestion_callback: Callable[[str, str, Optional[Dict[str, Any]]], Any]
+        ingestion_callback: Callable[[str, str, Optional[Dict[str, Any]], Optional[str]], Any]
     ):
         async with self.job_semaphore:
             try:
@@ -131,7 +131,7 @@ class BulkIngestionTaskManager:
         job: BulkIngestionJob,
         doc_index: int,
         doc: DocumentIngestionItem,
-        ingestion_callback: Callable[[str, str, Optional[Dict[str, Any]]], Any],
+        ingestion_callback: Callable[[str, str, Optional[Dict[str, Any]], Optional[str]], Any],
         semaphore: asyncio.Semaphore
     ):
         async with semaphore:
@@ -142,11 +142,12 @@ class BulkIngestionTaskManager:
                 result.status = JobStatus.PROCESSING
                 logger.debug(f"Processing document {doc.filename} in job {job.job_id}")
                 
-                # Call the ingestion function
+                # Call the ingestion function with dedup_key if available
                 document_id = await ingestion_callback(
                     str(doc.url), 
                     doc.filename, 
-                    doc.metadata
+                    doc.metadata,
+                    getattr(doc, 'dedup_key', None)  # Use dedup_key if available
                 )
                 
                 # Update result

@@ -154,7 +154,8 @@ async def ingest_document(
         document_id = await pipeline.ingest_document(
             url=str(request.url),
             filename=request.filename,
-            custom_metadata=request.metadata
+            custom_metadata=request.metadata,
+            dedup_key=request.dedup_key
         )
         
         logger.info(f"Successfully ingested document {document_id}")
@@ -341,7 +342,7 @@ async def bulk_ingest_documents(
             batch_name=request.batch_name
         )
         
-        # Start processing in the background
+        # Start processing in the background (task manager will pass dedup_key from documents)
         await task_manager.start_job(job_id, pipeline.ingest_document)
         
         # Estimate completion time (rough estimate: 30 seconds per document)

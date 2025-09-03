@@ -8,6 +8,7 @@ A high-performance Retrieval-Augmented Generation (RAG) pipeline built with GPU-
 - 📄 **Multi-format support**: PDF, DOCX, XLSX, HTML, JPG, PNG
 - 🔍 **Semantic search** with pgvector and sentence transformers
 - 🏷️ **Metadata filtering** for precise document retrieval  
+- 🔄 **Document deduplication** to prevent re-ingestion of identical documents
 - ⚡ **Async API** built with FastAPI
 - 🐳 **Docker support** with GPU acceleration
 - 🗄️ **PostgreSQL + pgvector** for efficient vector storage
@@ -116,6 +117,26 @@ curl -X POST "http://localhost:8000/ingest" \
   }'
 ```
 
+#### Document Deduplication
+
+By default, documents are deduplicated by filename + file type. You can specify a custom metadata field for deduplication:
+
+```bash
+curl -X POST "http://localhost:8000/ingest" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/document.pdf",
+    "filename": "example.pdf",
+    "metadata": {
+      "document_id": "doc_12345",
+      "category": "research"
+    },
+    "dedup_key": "document_id"
+  }'
+```
+
+When a duplicate is detected, the API returns the existing document ID without re-downloading or re-processing the file.
+
 ### Bulk Ingest Documents
 
 Submit multiple documents for processing in the background:
@@ -128,17 +149,21 @@ curl -X POST "http://localhost:8000/ingest/bulk" \
       {
         "url": "https://example.com/doc1.pdf",
         "filename": "document1.pdf",
-        "metadata": {"category": "research", "priority": "high"}
+        "metadata": {"category": "research", "priority": "high"},
+        "dedup_key": null  // Uses default filename+filetype dedup
       },
       {
         "url": "https://example.com/doc2.pdf", 
         "filename": "document2.pdf",
-        "metadata": {"category": "research", "priority": "medium"}
+        "metadata": {"category": "research", "priority": "medium", "doc_id": "unique_123"},
+        "dedup_key": "doc_id"  // Uses custom field for dedup
       }
     ],
     "batch_name": "research_papers_batch_1"
   }'
 ```
+
+Bulk ingestion also supports per-document deduplication settings.
 
 ### Check Bulk Job Status
 
@@ -253,6 +278,15 @@ deploy:
 - Real-time job progress monitoring
 - Batch processing with metadata support
 - Job cancellation and cleanup capabilities
+
+### Document Deduplication
+- Prevents re-ingestion of identical documents
+- Checks for duplicates before downloading/processing files
+- Flexible deduplication strategies:
+  - Default: filename + file type combination
+  - Custom: any metadata field (e.g., document_id, url, hash)
+- Returns existing document ID for duplicates
+- Saves bandwidth and processing time for large files
 
 ## Development
 

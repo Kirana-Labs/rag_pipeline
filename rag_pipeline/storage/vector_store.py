@@ -241,3 +241,34 @@ class VectorStore:
         
         # return await loop.run_in_executor(None, _get)
         return await _get()
+    
+    async def find_existing_document(
+        self,
+        dedup_key: Optional[str] = None,
+        filename: str = None,
+        file_type: str = None,
+        custom_metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
+        async def _find():
+            async with self.db_manager.get_session() as session:
+                query = select(DocumentRecord.id)
+                
+                if dedup_key and custom_metadata and dedup_key in custom_metadata:
+                    # Use custom metadata key for deduplication
+                    query = query.filter(
+                        DocumentRecord.custom_metadata[dedup_key].astext == str(custom_metadata[dedup_key])
+                    )
+                else:
+                    # Default: deduplicate by filename + file_type combination
+                    if filename:
+                        query = query.filter(DocumentRecord.filename == filename)
+                    if file_type:
+                        query = query.filter(DocumentRecord.file_type == file_type)
+                
+                result = await session.execute(query.first())
+                
+                if result:
+                    return result.scalars().first()
+                return None
+        
+        return await _find()

@@ -62,9 +62,25 @@ class RAGPipeline:
         self,
         url: str,
         filename: str,
-        custom_metadata: Optional[Dict[str, Any]] = None
+        custom_metadata: Optional[Dict[str, Any]] = None,
+        dedup_key: Optional[str] = None
     ) -> str:
-        # Process document
+        # Determine file_type from filename for deduplication check
+        file_extension = filename.split('.')[-1].lower() if '.' in filename else ''
+        
+        # Check for existing document BEFORE downloading/processing
+        existing_document_id = await self.vector_store.find_existing_document(
+            dedup_key=dedup_key,
+            filename=filename,
+            file_type=file_extension,  # Use extension as initial file_type
+            custom_metadata=custom_metadata
+        )
+        
+        if existing_document_id:
+            # Document already exists, return early with existing ID
+            return existing_document_id
+        
+        # Process document only if it doesn't exist
         document = await self.document_processor.process_document_from_url(
             url=url,
             filename=filename,
@@ -73,7 +89,6 @@ class RAGPipeline:
         
         # Chunk document
         chunks = await self.chunking_service.chunk_document(document)
-        print(chunks)
         
         # Generate embeddings for chunks
         chunks_with_embeddings = await self.embedding_service.embed_chunks(chunks)
