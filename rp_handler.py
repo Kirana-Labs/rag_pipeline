@@ -87,6 +87,7 @@ async def handle_ingest(input_data: Dict[str, Any]) -> Dict[str, Any]:
         url = input_data.get("url")
         filename = input_data.get("filename")
         metadata = input_data.get("metadata", {})
+        dedup_key = input_data.get("dedup_key", None)
         
         if not url or not filename:
             return {
@@ -94,12 +95,15 @@ async def handle_ingest(input_data: Dict[str, Any]) -> Dict[str, Any]:
             }
         
         logger.info(f"Ingesting document: {filename} from {url}")
+        if dedup_key:
+            logger.info(f"Using deduplication key: {dedup_key}")
         
         pipeline = await initialize_pipeline()
         document_id = await pipeline.ingest_document(
             url=url,
             filename=filename,
-            custom_metadata=metadata
+            custom_metadata=metadata,
+            dedup_key=dedup_key
         )
         
         return {
@@ -250,6 +254,11 @@ async def handler(event):
         "action": "ingest|query|list_documents|health",
         "data": {
             # Action-specific parameters
+            # For ingest action:
+            #   - url: Document URL (required)
+            #   - filename: Document filename (required)
+            #   - metadata: Custom metadata dict (optional)
+            #   - dedup_key: Metadata field to use for deduplication (optional)
         }
     }
     """
